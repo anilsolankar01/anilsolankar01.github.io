@@ -59,7 +59,7 @@
                 icnEagleInactive = L.icon({iconUrl:'img/nest.png', iconSize:[40,40], iconAnchor:[20,24]});
                 
                 mymap = L.map('mapdiv', {center:[16.85, 74.58], zoom:11, attributionContol:false});
-                
+                var marker = L.marker([16.85, 74.58]).addTo(mymap);
                 ctlPan = L.control.pan().addTo(mymap);
                 /*ctlZoomslider = L.control.zoomslider({position:'topright'}).addTo(mymap);*/
                 
