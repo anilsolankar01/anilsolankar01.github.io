@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Webmap 201</title>
+        <link rel="stylesheet" href="src/leaflet.css">
+        <link rel="stylesheet" href="src/css/bootstrap.css">
+        <link rel="stylesheet" href="src/plugins/L.Control.Pan.css">
+        <link rel="stylesheet" href="src/plugins/L.Control.MousePosition.css">
+        <link rel="stylesheet" href="src/plugins/Leaflet.PolylineMeasure.css">
+        <link rel="stylesheet" href="src/plugins/L.Control.Sidebar.css">
+        <link rel="stylesheet" href="src/plugins/leaflet-opencage/src/css/L.Control.OpenCageSearch.css">
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.css"/>
+        <link rel="stylesheet" href="src/css/fontawesome.min.css">
+        <link rel="stylesheet" href="src/plugins/leaflet.awesome-markers.css">
+        <script src="src/leaflet-src.js"></script>
+        <script src="src/jquery-3.4.1.min.js"></script>
+        <script src="src/plugins/L.Control.Pan.js"></script>
+        <script src="src/plugins/L.Control.MousePosition.js"></script>
+        <script src="src/plugins/Leaflet.PolylineMeasure.js"></script>
+        <script src="src/plugins/L.Control.Sidebar.js"></script>
+        <script src="src/plugins/leaflet-opencage/src/js/L.Control.OpenCageSearch.js"></script>
+        <script src="src/plugins/leaflet-providers.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/0.4.2/leaflet.draw.js"></script>  
+        <script src="src/plugins/ajax.js"></script>
+        <script src="src/plugins/leaflet.awesome-markers.min.js"></script>
+        <style>
+            #mapdiv {height:100vh;}
+        </style>
+    </head>
+    <body>
+        <div id="mapdiv" class="col-md-12"></div>
+        <script>
+            var mymap;
+            var lyrOSM;
+            var lyrWatercolor;
+            var lyrTopo;
+            var lyrImagery;
+            var lyrOutdoors;
+            var fgpDrawnItems;
+            var ctlAttribute;
+            var ctlScale;
+            var ctlPan;
+            var ctlMouseposition;
+            var ctlMeasure;
+            var ctlSearch;
+            var ctlLayers;
+            var ctlDraw;
+            var objBasemaps;
+            var objOverlays;
+            var icnEagleActive;
+            var icnEagleInactive;
+            
+            $(document).ready(function(){
+                
+                //  ************ Map Initialization **********************************
+                
+                icnEagleActive = L.icon({iconUrl:'img/nest2.png', iconSize:[40,40], iconAnchor:[20,24]});
+                icnEagleInactive = L.icon({iconUrl:'img/nest.png', iconSize:[40,40], iconAnchor:[20,24]});
+                
+                mymap = L.map('mapdiv', {center:[16.85, 74.58], zoom:11, attributionContol:false});
+                
+                ctlPan = L.control.pan().addTo(mymap);
+                /*ctlZoomslider = L.control.zoomslider({position:'topright'}).addTo(mymap);*/
+                
+                ctlMeasure = L.control.polylineMeasure().addTo(mymap);
+                
+                ctlSearch = L.Control.openCageSearch({key:'a83040d70b4c4b9dbaba7e874d68b5f8', limit:10}).addTo(mymap);
+                
+                ctlAttribute = L.control.attribution({position:'bottomleft'});
+                ctlAttribute.addTo(mymap);
+                ctlAttribute.addAttribution('OSM');
+                ctlAttribute.addAttribution('<a href="https://github.com/ashok-bidani">Github</a>');
+                
+                ctlScale = L.control.scale({position:'bottomleft', metric:false, maxWidth:200}).addTo(mymap);
+                
+                ctlMouseposition = L.control.mousePosition().addTo(mymap);
+                
+                //  ************ Layer Initialization ******************************
+                
+                lyrOSM = L.tileLayer.provider('OpenStreetMap.Mapnik');
+                lyrWatercolor = L.tileLayer.provider('Stamen.Watercolor');
+                lyrTopo= L.tileLayer.provider('OpenTopoMap');
+                lyrImagery = L.tileLayer.provider('Esri.WorldImagery');
+                lyrOutdoors = L.tileLayer.provider('Thunderforest.Outdoors');
+                mymap.addLayer(lyrOSM);
+                
+                fgpDrawnItems = new L.FeatureGroup();
+                fgpDrawnItems.addTo(mymap);
+                
+                lyrEagleNests = L.geoJSON(["data/wildlife_eagle.geojson"], {pointToLayer:returnEagleMarker}).addTo(mymap);
+                lyrEagleNests.on('data:loaded', function(){
+                    mymap.fitBounds(lyrEagleNests.getBounds());
+                });
+                
+                lyrRaptorNests = L.geoJSON('data/wildlife_raptor.geojson', {pointToLayer:returnRaptorMarker});
+                lyrRaptorNests.on('data:loaded', function(){
+                });
+                
+                //  ************** Setup Layer Control **************************
+                
+                objBasemaps = {
+                    "Open Street Maps": lyrOSM,
+                    "Topo Map": lyrTopo,
+                    "Imagery": lyrImagery,
+                    "Outdoors": lyrOutdoors,
+                    "Watercolor": lyrWatercolor
+                };
+                
+                objOverlays = {"Drawn Items":fgpDrawnItems};
+                
+                ctlLayers = L.control.layers(objBasemaps, objOverlays).addTo(mymap);
+            
+                //  ************* Setup Draw Control ****************************
+                
+                ctlDraw = new L.Control.Draw({
+                    draw:{
+                        circle:false
+                    },
+                    edit:{
+                        featureGroup:fgpDrawnItems
+                    }
+                });
+                ctlDraw.addTo(mymap);
+                
+                mymap.on('draw:created', function(e){
+                    console.log(e);
+                    fgpDrawnItems.addLayer(e.layer);
+                });
+                
+            });
+            
+            //  **************** Eagle Functions *********************
+            
+            function returnEagleMarker(json, latlng){
+                var att = json.properties;
+//                if (att.status=='ACTIVE NEST') {
+//                    var clrNest = 'deeppink';
+//                } else {
+//                    var clrNest = 'green';
+//                }
+//                return L.circle(latlng, {radius:804, color:clrNest,fillColor:'green', fillOpacity:0.5}).bindTooltip("<h4>Eagle Nest: "+att.nest_id+"</h4>Status: "+att.status);
+                if (att.status=='ACTIVE NEST') {
+                    var icnEagle = icnEagleActive;
+                } else {
+                    var icnEagle = icnEagleInactive;
+                }
+                return L.marker(latlng, {icon:icnEagle}).bindTooltip("<h4>Eagle Nest: "+att.nest_id+"</h4>");
+            };
+            
+            //  **************** Raptor Functions ********************
+            
+            function returnRaptorMarker(json, latlng){
+                var att = json.properties;
+                switch (att.recentspecies) {
+                    case 'Red-tail Hawk':
+                        var radRaptor = 533;
+                        break;
+                    case 'Swainsons Hawk':
+                        var radRaptor = 400;
+                        break;
+                    default:
+                        var radRaptor = 804;
+                        break;
+                }
+                switch (att.recentstatus) {
+                    case 'ACTIVE NEST':
+                        var optRaptor = {radius:radRaptor, color:'deeppink', fillColor:"blue", fillOpacity:0.5};
+                        break;
+                    case 'INACTIVE NEST':
+                        var optRaptor = {radius:radRaptor, color:'blue', fillColor:'blue', fillOpacity:0.5};
+                        break;
+                    case 'FLEDGED NEST':
+                        var optRaptor = {radius:radRaptor, color:'deeppink', fillColor:"blue", fillOpacity:0.5, dashArray:"2,8"};
+                        break;
+                }
+                return L.circle(latlng, optRaptor).bindPopup("<h4>Raptor Nest: "+att.Nest_ID+"</h4>Status: "+att.recentstatus+"<br>Species: "+att.recentspecies+"<br>Last Survey: "+att.lastsurvey);
+            };
+            
+        </script>
+    </body>
+</html>
